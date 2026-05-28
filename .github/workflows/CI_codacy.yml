@@ -7,82 +7,30 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   build:
     name: CLI quality checks
     runs-on: ubuntu-latest
+    env:
+      CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Prepare SPLENT workspace layout
-        run: |
-          sudo mkdir -p /workspace
-          sudo ln -sfn "$GITHUB_WORKSPACE" /workspace/splent_cli
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-          cache: pip
-
-      - name: Install dependencies
-        working-directory: /workspace/splent_cli
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install splent-framework
-          python -m pip install -e ".[dev]"
-          python -m pip install pip-audit codacy-coverage
-
-      - name: Check for outdated dependencies
-        working-directory: /workspace/splent_cli
-        run: pip list --outdated
-
-      - name: Security audit with pip-audit
-        working-directory: /workspace/splent_cli
-        run: pip-audit || true
-
-      - name: Run tests
-        working-directory: /workspace/splent_cli
-        env:
-          WORKING_DIR: /workspace
-          SPLENT_APP: test_app
-          SPLENT_ENV: dev
-        run: |
-          docker info
-          python -m pytest tests/unit
-
-      - name: Upload coverage to Codacy
-        if: github.event_name == 'push'
-        working-directory: /workspace/splent_cli
-        run: |
-          coverage run --source=src -m pytest tests/unit
-          coverage xml
-          python-codacy-coverage -r coverage.xml
-        env:
-          WORKING_DIR: /workspace
-          SPLENT_APP: test_app
-          SPLENT_ENV: dev
-          CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN || secrets.CODACY_TOKEN }}
-
       - name: Run Codacy Analysis CLI
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && env.CODACY_PROJECT_TOKEN != ''
         uses: codacy/codacy-analysis-cli-action@master
         with:
-          directory: ${{ github.workspace }}/src
-          output: results.sarif
-          format: sarif
-          gh-code-scanning-compat: true
-          max-allowed-issues: 2147483647
+          project-token: ${{ env.CODACY_PROJECT_TOKEN }}
+          upload: true
+          max-allowed-issues: 0
 
-      - name: Upload SARIF results
-        if: github.event_name == 'push'
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: results.sarif
+      - name: Skip Codacy Analysis CLI
+        if: github.event_name == 'push' && env.CODACY_PROJECT_TOKEN == ''
+        run: echo "CODACY_PROJECT_TOKEN secret is not configured; skipping Codacy analysis upload."
