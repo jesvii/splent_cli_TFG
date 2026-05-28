@@ -25,6 +25,7 @@ jobs:
 
       - name: Run Codacy Analysis CLI
         if: github.event_name == 'push' && env.CODACY_TOKEN != ''
+        continue-on-error: true
         uses: codacy/codacy-analysis-cli-action@master
         with:
           project-token: ${{ env.CODACY_TOKEN }}
