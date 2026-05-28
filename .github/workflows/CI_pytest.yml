@@ -40,6 +40,10 @@ jobs:
 
       - name: Run pytest
         working-directory: /workspace/splent_cli
+        env:
+          WORKING_DIR: /workspace
+          SPLENT_APP: test_app
+          SPLENT_ENV: dev
         run: |
           docker info
           python -m pytest tests/unit
