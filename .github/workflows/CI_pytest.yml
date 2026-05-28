@@ -1,0 +1,45 @@
+name: CI pytest
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    name: CLI commands and API integration tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare SPLENT workspace layout
+        run: |
+          sudo mkdir -p /workspace
+          sudo ln -sfn "$GITHUB_WORKSPACE" /workspace/splent_cli
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install package and test dependencies
+        working-directory: /workspace/splent_cli
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install splent-framework
+          python -m pip install -e ".[dev]"
+
+      - name: Run pytest
+        working-directory: /workspace/splent_cli
+        run: |
+          docker info
+          python -m pytest tests/unit
