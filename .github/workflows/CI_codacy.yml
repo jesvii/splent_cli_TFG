@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CODACY_TOKEN: ${{ secrets.CODACY_TOKEN }}
-      CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+      CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN || secrets.CODACY_TOKEN }}
 
     steps:
       - name: Checkout code
@@ -41,7 +41,6 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install splent-framework
           python -m pip install -e ".[dev]"
-          python -m pip install codacy-coverage
 
       - name: Run tests with coverage
         working-directory: /workspace/splent_cli
@@ -69,15 +68,12 @@ jobs:
         run: echo "CODACY_TOKEN secret is not configured; skipping Codacy analysis upload."
 
       - name: Upload coverage to Codacy
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        working-directory: /workspace/splent_cli
-        env:
-          CODACY_TOKEN: ${{ env.CODACY_TOKEN }}
-          CODACY_PROJECT_TOKEN: ${{ env.CODACY_PROJECT_TOKEN }}
-        run: |
-          TOKEN="${CODACY_PROJECT_TOKEN:-$CODACY_TOKEN}"
-          if [ -z "$TOKEN" ]; then
-            echo "Codacy project token is not configured; skipping coverage upload."
-            exit 0
-          fi
-          CODACY_PROJECT_TOKEN="$TOKEN" python-codacy-coverage -r coverage.xml
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && env.CODACY_PROJECT_TOKEN != ''
+        uses: codacy/codacy-coverage-reporter-action@v1
+        with:
+          project-token: ${{ env.CODACY_PROJECT_TOKEN }}
+          coverage-reports: coverage.xml
+
+      - name: Skip coverage upload
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && env.CODACY_PROJECT_TOKEN == ''
+        run: echo "Codacy project token is not configured; skipping coverage upload."
